@@ -18,11 +18,12 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torchvision import transforms
-from training import lpips
+#from training import lpips
 from training.model import Generator, Discriminator, Encoder
-from training.dataset_ddp import MultiResolutionDataset
+from training.dataset_ddp2 import MultiResolutionDataset
 from tqdm import tqdm
 
+import lpips
 torch.backends.cudnn.benchmark = True
 
 
@@ -142,9 +143,11 @@ class DDPModel(nn.Module):
             args.latent_spatial_size,
             channel_multiplier=args.channel_multiplier,
         )
+        '''
         self.percept = lpips.exportPerceptualLoss(
             model="net-lin", net="vgg", use_gpu=device.startswith("cuda")
-        )
+        )'''
+        self.percept = lpips.LPIPS(net='alex')
 
         self.device = device
         self.args = args
@@ -294,6 +297,7 @@ def ddp_main(rank, world_size, args):
 
     transform = transforms.Compose(
         [
+            transforms.Resize((256, 256)),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),

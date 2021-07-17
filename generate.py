@@ -17,14 +17,19 @@ from torch.utils import data
 from torchvision import utils, transforms
 import numpy as np
 from torchvision.datasets import ImageFolder
-from training.dataset import (
+
+import os
+import sys
+file_dir = os.path.dirname(__file__)
+sys.path.append(file_dir)
+
+from training.dataset_ddp2 import (
     MultiResolutionDataset,
-    GTMaskDataset,
+    #GTMaskDataset,
 )
 from scipy import linalg
 import random
 import time
-import os
 from tqdm import tqdm
 from copy import deepcopy
 import cv2
@@ -32,10 +37,44 @@ from PIL import Image
 from itertools import combinations
 from training.model import Generator, Encoder
 
+from types import SimpleNamespace
+args = SimpleNamespace()
+
 random.seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
+device='cuda'
 
+def quick_load_stylemapgan(ckpt_path='expr/checkpoints/080000.pt'): 
+    ckpt = torch.load(ckpt_path)
+    train_args = ckpt["train_args"]
+    
+    for key in vars(train_args):
+        if not (key in vars(args)):
+            setattr(args, key, getattr(train_args, key))
+
+    model = Model().to(device)
+    model.g_ema.load_state_dict(ckpt["g_ema"])
+    model.e_ema.load_state_dict(ckpt["e_ema"])
+    model.eval()
+    return model
+
+def quick_generate(img_path, model): 
+    transform = transforms.Compose(
+        [
+            transforms.Resize((256, 256)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),
+        ]
+    )
+    
+    img = Image.open(img_path)
+    img = img.convert('RGB')
+    img = transform(img)
+    img = torch.unsqueeze(img, dim=0).to(device)
+
+    out_im = model(img, "reconstruction")
+    return out_im
 
 def save_image(img, path, normalize=True, range=(-1, 1)):
     utils.save_image(
@@ -255,6 +294,7 @@ if __name__ == "__main__":
     device = "cuda"
     transform = transforms.Compose(
         [
+            transforms.Resize((256, 256)),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),
         ]
@@ -435,6 +475,7 @@ if __name__ == "__main__":
         elif args.mixing_type == "reconstruction":
             for i, real_img in enumerate(tqdm(loader, mininterval=1)):
                 real_img = real_img.to(device)
+                print(real_img.shape)
                 recon_image = model(real_img, "reconstruction")
 
                 for i_b, (img_1, img_2) in enumerate(zip(real_img, recon_image)):

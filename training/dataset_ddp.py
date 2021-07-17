@@ -43,7 +43,10 @@ class MultiResolutionDataset(Dataset):
             raise IOError(f"Cannot open lmdb dataset {self.path}")
 
         with self.env.begin(write=False) as txn:
-            self.length = int(txn.get("length".encode("utf-8")).decode("utf-8"))
+            #self.length = int(txn.get("length".encode("utf-8")).decode("utf-8"))
+            #print (self.env.stat())
+            self.length = self.env.stat()['entries']
+
 
     def _close(self):
         if self.env is not None:
@@ -60,13 +63,21 @@ class MultiResolutionDataset(Dataset):
     def __getitem__(self, index):
         if self.env is None:
             self._open()
-
+        
         with self.env.begin(write=False) as txn:
-            key = f"{self.resolution}-{str(index).zfill(5)}".encode("utf-8")
+#             for key, value in txn.cursor():
+#                 print (key)
+                
+            #key = f"{self.resolution}-{str(index).zfill(5)}".encode("utf-8")
+            key = f"{str(index)}".encode("utf-8")
+            print("key", key)
             img_bytes = txn.get(key)
-
-        buffer = BytesIO(img_bytes)
-        img = Image.open(buffer)
-        img = self.transform(img)
+        
+            #print("img_bytes", img_bytes)
+            buffer = BytesIO(img_bytes)
+            print("buffer", buffer)
+            img = Image.open(buffer)
+            print("img", img)
+            img = self.transform(img)
 
         return img

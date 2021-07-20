@@ -76,6 +76,21 @@ def quick_generate(img_path, model):
     out_im = model(img, "reconstruction")
     return out_im
 
+def get_original_image(img_path): 
+    transform = transforms.Compose(
+        [
+            transforms.Resize((256, 256)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),
+        ]
+    )
+    
+    img = Image.open(img_path)
+    img = img.convert('RGB')
+    img = transform(img)
+    img = torch.unsqueeze(img, dim=0).to(device)
+    return img
+
 def save_image(img, path, normalize=True, range=(-1, 1)):
     utils.save_image(
         img,
